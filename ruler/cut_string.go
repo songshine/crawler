@@ -39,6 +39,10 @@ func (r *cutStringRule) Get(content string, distinct bool) []string {
 		return result
 	}
 	result = append(result, r.trans.transString(match))
+	ei += len(r.end)
+	if ei >= len(content) {
+		return result
+	}
 	subs := r.Get(content[ei:], distinct)
 	if !distinct {
 		result = append(result, subs...)
