@@ -60,7 +60,6 @@ func evaluateJS2(url, elemJs string, excludeJs string, timeoutInMillis int) stri
 
 var jsBody = `
 var page = webpage.create();
-try {
  page.open('%s', function(status) {
         if (status !== 'success') {
 			page.release();
@@ -80,9 +79,6 @@ try {
             }, %d) 
 		} 
  });
- } catch(ex) {
-	 console.error("SH_RES" + " " + "UnknownError" + "\n");
- }
  `
 
 func evaluateJS(url, script string, exclude string, timeoutInMillis int) string {
