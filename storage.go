@@ -6,7 +6,7 @@ import (
 	"os"
 )
 
-const flushWindow = 100
+const flushWindow = 10
 
 type DataStorager interface {
 	Persist(DataCollector)
@@ -35,10 +35,12 @@ func (s *csvDataStorage) Persist(c DataCollector) {
 
 	writer.Write(names)
 	for r := range results {
+		writer.Write(r)
+		total++
+		log.Printf(">>> Result count received in storage: %d \n", total)
 		if total%flushWindow == 0 {
 			writer.Flush()
 		}
 
-		writer.Write(r)
 	}
 }

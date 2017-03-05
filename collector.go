@@ -1,12 +1,15 @@
 package crawler
 
 import (
+	"log"
 	"sync"
 
+	"github.com/songshine/crawler/pool"
 	"github.com/songshine/crawler/ruler"
 )
 
 const maxCache = 500
+const maxWorker = 6
 
 type (
 	// FieldValues represents all useful data from a web page.
@@ -26,17 +29,18 @@ type (
 type DataCollector interface {
 	Collect() <-chan FieldValues
 	Names() []string
-	Add(string, ruler.Interface, bool)
+	Add(name string, rule ruler.Interface, fromURL bool)
 }
 
 // NewDataCollector creates a DataCollector instance.
 func NewDataCollector(urlCollector URLCollector, items ...*FieldItem) DataCollector {
-	return &dataCollectorImp{
+	c := &dataCollectorImp{
 		urlCollector: urlCollector,
 		fields:       items,
 		result:       make(chan FieldValues, maxCache),
-		pool:         newExecutorPool(),
+		pool:         pool.New(maxWorker),
 	}
+	return c
 }
 
 func (f fields) Add(name string, rule ruler.Interface, fromURL bool) {
@@ -56,7 +60,7 @@ type dataCollectorImp struct {
 	fields
 	urlCollector URLCollector
 	result       chan FieldValues
-	pool         *executorPool
+	pool         pool.Interface
 	wg           sync.WaitGroup
 }
 
@@ -68,7 +72,8 @@ func (c *dataCollectorImp) Collect() <-chan FieldValues {
 				break
 			}
 			c.wg.Add(1)
-			ticket := <-c.pool.Tickets
+			log.Printf(">>> Current active data collector process: %d\n", c.pool.ActiveCount())
+			ticket := c.pool.Take()
 			go c.colllecFromURL(url, ticket)
 		}
 
@@ -88,14 +93,18 @@ func (c *dataCollectorImp) colllecFromURL(url string, ticket *struct{}) {
 	if err != nil {
 		return
 	}
-
 	vals := make(FieldValues, 0, len(c.fields))
 	for _, i := range c.fields {
 		content := resp
 		if i.FromURL {
 			content = url
 		}
-		vals = append(vals, i.Rule.GetFirst(content))
+
+		val := i.Rule.GetFirst(content)
+		if val == "" {
+			val = "NOTFOUND"
+		}
+		vals = append(vals, val)
 	}
 	c.result <- vals
 }

@@ -37,14 +37,14 @@ func PostString(url, data string) (resp string, err error) {
 func Get(url string) (resp string, err error) {
 	r, err := http.Get(url)
 	if err != nil {
-		log.Printf("Error happens when get from %s", url)
+		log.Printf("Error happens when get from %s, error %v", url, err)
 		return "", err
 	}
 
 	defer r.Body.Close()
 	respData, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Println("GET: Fail to parse response")
+		log.Printf("GET: Fail to parse response, error %v", err)
 		return "", err
 	}
 

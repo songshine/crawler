@@ -1,0 +1,79 @@
+"use strict";
+var system = require('system');
+var page = require('webpage').create();
+(function() {
+    function captureInput() {
+    var lines = [];
+    var l = system.stdin.readLine();
+    while (l !== 'END' && l !== 'END\n') {
+      lines.push(l);
+      l = system.stdin.readLine();
+    }
+    var command = lines.splice(0, 1)[0];
+    if (command === 'EVAL' || command === 'EVAL\n') {
+      try {
+        eval.call(this, lines.join('\n'));
+      } catch (ex) {
+        system.stdout.writeLine("Error during EVAL of" + lines.join('\n'));
+      }
+      setTimeout(captureInput, 0);
+    } else if (command === 'RUN' || command === 'RUN\n') {
+        try {
+            console.log(lines.join('\n'));
+            eval(lines.join('\n'));
+        }catch (ex) {
+            console.log(ex);
+            setTimeout(captureInput, 0);
+        }      
+    } else {
+      system.stdout.writeLine("Invalid command:<" + command+">");
+      
+    }
+}
+    function waitFor(testFx, onReady, timeOutMillis) {
+        var maxtimeOutMillis = timeOutMillis ? timeOutMillis : 3000,
+            start = new Date().getTime(),
+            condition = false,
+            interval = setInterval(function() {
+                if ( (new Date().getTime() - start < maxtimeOutMillis) && !condition ) {
+                    condition = (typeof(testFx) === "string" ? eval(testFx) : testFx()); 
+                } else {
+                    if(!condition) {
+                        phantom.exit(1);
+                    } else {
+                        
+                        typeof(onReady) === "string" ? eval(onReady) : onReady();
+                        clearInterval(interval);
+                    }
+                }
+            }, 250);
+    };
+
+    function getElementValue(url, elemFunc, timeoutMillis) {
+        console.log(url)
+        console.log(elemFunc)
+        console.log(timeoutMillis)
+        page.open(url, function(status) {
+            console.log('status is ' + status);
+            if (status !== 'success') {
+            console.log('Unable to access network');
+        } else {
+            console.log(system.args[1])
+            waitFor(function() {
+                    return page.evaluate(function() {
+                        val = (typeof(elemFunc) === "string" ? eval(elemFunc) : elemFunc());
+                        console.log(val)
+                        return val !== "";
+                    })
+            }, function(){
+                    var title = page.evaluate(function() {
+                        return (typeof(elemFunc) === "string" ? eval(elemFunc) : elemFunc());
+                    });
+                    console.log('Page title is ' + title);
+                    phantom.exit();
+            }, timeoutMillis) 
+        }
+        });
+    }
+     setTimeout(captureInput, 0);
+}())

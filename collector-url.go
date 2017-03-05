@@ -20,7 +20,7 @@ func NewURLCollector(p ListPager, r ruler.Interface) URLCollector {
 	c := &urlCollectorImp{
 		pager:   p,
 		ruler:   r,
-		urlChan: make(chan string, 500),
+		urlChan: make(chan string, 50),
 	}
 	go func() {
 		for {
@@ -39,7 +39,7 @@ func NewURLCollector(p ListPager, r ruler.Interface) URLCollector {
 }
 
 func (c *urlCollectorImp) Next() (url string, done bool) {
-	log.Printf(">>> There are still %d urls needed to process\n", len(c.urlChan))
+	log.Printf(">>> URL count in collector: %d \n", len(c.urlChan))
 
 	url, ok := <-c.urlChan
 	return url, !ok
