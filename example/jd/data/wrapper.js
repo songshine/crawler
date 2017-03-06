@@ -3,8 +3,10 @@ var webpage = require('webpage');
 
 (function() {
     function captureInput() {
+        console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>begin read ");
         var lines = [];
         var l = system.stdin.readLine();
+        console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>end read " + l);
         while (l !== 'END' && l !== 'END\n') {
             lines.push(l);
             l = system.stdin.readLine();
@@ -31,24 +33,26 @@ var webpage = require('webpage');
             setTimeout(captureInput, 0);
         }        
     }
+
     function waitFor(testFx, onReady, timeOutMillis) {
         var maxtimeOutMillis = timeOutMillis ? timeOutMillis : 3000,
         start = new Date().getTime(),
-        condition = false,
-        interval = setInterval(function() {
+        condition = false;
+        var interval = setInterval(function() {
             if ( (new Date().getTime() - start < maxtimeOutMillis) && !condition ) {
                 condition = (typeof(testFx) === "string" ? eval(testFx) : testFx()); 
             } else {
                 if(!condition) {
                     system.stderr.writeLine("SH_RES" + " " + "TimoutError" + "\n");
-                   
-                } else {                        
-                    typeof(onReady) === "string" ? eval(onReady) : onReady();
-                    clearInterval(interval);
+                } else {      
+                    typeof(onReady) === "string" ? eval(onReady) : onReady(); 	                  
                 }
+                clearInterval(interval);  
+                console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>after clear interval");	  
                 setTimeout(captureInput, 0);
             }
-        }, 200);
+        }, 250);
     };
+    
     setTimeout(captureInput, 0);   
 }())

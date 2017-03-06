@@ -3,7 +3,6 @@ package phantom
 import (
 	"bufio"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os/exec"
@@ -48,9 +47,10 @@ func Return(p *Phantom) {
 func Exit() {
 	close(pool.ps)
 	for p := range pool.ps {
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>.Exit before")
 		err := p.exit()
-		fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>.Exit ERROR", err)
+		if err != nil {
+			log.Printf("PhantomJS exit failed, error %v \n", err)
+		}
 	}
 }
 
@@ -111,6 +111,7 @@ func (p *Phantom) exit() error {
 }
 
 func (p *Phantom) Run(jsFunc string) (string, error) {
+	log.Println(">>>>>>>>> Run Phantom")
 	err := p.sendLine("RUN", jsFunc, "END")
 	if err != nil {
 		return "", err
@@ -144,7 +145,6 @@ func (p *Phantom) Run(jsFunc string) (string, error) {
 			log.Printf("ERROR LOG %s\n", line)
 		}
 	}()
-
 	time.Sleep(time.Millisecond * 6)
 	select {
 	case text := <-resMsg:

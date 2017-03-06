@@ -60,23 +60,35 @@ func evaluateJS2(url, elemJs string, excludeJs string, timeoutInMillis int) stri
 
 var jsBody = `
 var page = webpage.create();
- page.open('%s', function(status) {
+page.onResourceRequested = function(requestData, request) {
+    if ((/http:\/\/.+?\.css/gi).test(requestData['url']) || requestData['Content-Type'] == 'text/css') {
+        request.abort();
+    }
+};
+page.open('%s', function(status) {
         if (status !== 'success') {
-			page.release();
+			page.close();
             console.error("SH_RES" + " " + "NetworkError" + "\n");
-			setTimeout(captureInput, 0);
         } else {
-            waitFor(function() {
-                    return page.evaluate(function() {
-                        return %s;
-                    })
-            }, function(){
-                    var result = page.evaluate(function() {
-                        return %s;
-                    });					
-					console.log("SH_RES" + " " + result + "\n");
-					page.release()
-            }, %d) 
+			var check = function() {
+				return page.evaluate(function() {
+						return %s;
+				});
+            };
+			var done = function() {
+				var result = page.evaluate(function() {
+                    	return %s;
+                });								
+				console.log("SH_RES" + " " + result + "\n");	
+				page.close();			
+			};
+			waitFor(check, done, %d);
+			/*if (check()) {
+				done();
+				setTimeout(captureInput, 0);			
+			} else {
+				waitFor(check, done, %d);
+			}  */          
 		} 
  });
  `
