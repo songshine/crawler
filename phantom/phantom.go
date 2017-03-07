@@ -14,7 +14,7 @@ import (
 const (
 	ResponsePrefix = "SH_RES"
 
-	MaxPhantomInstance = 3
+	MaxPhantomInstance = 2
 
 	MaxTimeoutSecond = 5
 )
@@ -32,6 +32,7 @@ type phantomPool struct {
 func init() {
 	var err error
 	wrapperFileName, err = createWrapperFile()
+	log.Printf(">>> Wrapper file name: %s", wrapperFileName)
 	if err != nil {
 		log.Printf("Create wrapper file failed")
 		return
@@ -115,6 +116,7 @@ func start(scriptPath string, args ...string) (*Phantom, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	p.startReadStd()
 	return &p, nil
 }
@@ -166,6 +168,7 @@ func (p *Phantom) exit() error {
 }
 
 func (p *Phantom) Run(jsScript string) (string, error) {
+	log.Println(">>>>>>>>>>>>>>>>>>>>>>>> Run" + jsScript)
 	err := p.sendLine("RUN", jsScript, "END")
 	if err != nil {
 		return "", err
@@ -264,5 +267,4 @@ var webpage = require('webpage');
     
     setTimeout(captureInput, 0);   
 }());
-
 `

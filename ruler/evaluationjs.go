@@ -3,17 +3,10 @@ package ruler
 import (
 	"fmt"
 
+	"log"
+
 	"github.com/songshine/crawler/phantom"
-	"github.com/songshine/crawler/pool"
 )
-
-const maxRuningPhantomjs = 2
-
-var globalPhantomjsPool pool.Interface
-
-func init() {
-	globalPhantomjsPool = pool.New(maxRuningPhantomjs)
-}
 
 func NewEvaluationJSRule(elemJS, checkJS string, timeoutInMillis int, transFunc transStringFunc) Interface {
 	r := &evaluationJSRule{
@@ -25,7 +18,7 @@ func NewEvaluationJSRule(elemJS, checkJS string, timeoutInMillis int, transFunc 
 	return r
 }
 
-// implement ExtractStringRuler
+// implement Interface
 type evaluationJSRule struct {
 	elemJS, checkJS string
 	timeoutInMillis int
@@ -42,6 +35,7 @@ func (r *evaluationJSRule) GetFirst(url string) string {
 }
 
 func evaluateJS(url, elemJs string, checkJS string, timeoutInMillis int) string {
+	log.Println(">>>>>>>>>>>>>>>>>>>>>>>> evaluateJS")
 	js := fmt.Sprintf(jsBody, url, checkJS, elemJs, timeoutInMillis)
 	p := phantom.Take()
 	defer phantom.Return(p)
