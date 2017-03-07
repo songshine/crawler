@@ -3,8 +3,6 @@ package ruler
 import (
 	"fmt"
 
-	"log"
-
 	"github.com/songshine/crawler/phantom"
 )
 
@@ -35,7 +33,6 @@ func (r *evaluationJSRule) GetFirst(url string) string {
 }
 
 func evaluateJS(url, elemJs string, checkJS string, timeoutInMillis int) string {
-	log.Println(">>>>>>>>>>>>>>>>>>>>>>>> evaluateJS")
 	js := fmt.Sprintf(jsBody, url, checkJS, elemJs, timeoutInMillis)
 	p := phantom.Take()
 	defer phantom.Return(p)

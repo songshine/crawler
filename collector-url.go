@@ -6,6 +6,9 @@ import (
 	"github.com/songshine/crawler/ruler"
 )
 
+// URLCollector defines a collector to collect URLs, and invoking Next to
+// loop all URLs. When there are no more URLs available, Next returns
+// true for the second value returned.
 type URLCollector interface {
 	Next() (string, bool)
 }
@@ -16,6 +19,7 @@ type urlCollectorImp struct {
 	urlChan chan string
 }
 
+// NewURLCollector creates a URLCollector implementation.
 func NewURLCollector(p ListPager, r ruler.Interface) URLCollector {
 	c := &urlCollectorImp{
 		pager:   p,

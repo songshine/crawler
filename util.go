@@ -9,6 +9,7 @@ import (
 	"github.com/songshine/crawler/ruler"
 )
 
+// PostString make a POST HTTP request and encode a string data into ulr.
 func PostString(url, data string) (resp string, err error) {
 	body := ioutil.NopCloser(strings.NewReader(data))
 	req, err := http.NewRequest("POST", url, body)
@@ -34,6 +35,7 @@ func PostString(url, data string) (resp string, err error) {
 	return string(respData), nil
 }
 
+// Get makes a GET HTTP request from `url`.
 func Get(url string) (resp string, err error) {
 	r, err := http.Get(url)
 	if err != nil {
@@ -51,6 +53,8 @@ func Get(url string) (resp string, err error) {
 	return string(respData), nil
 }
 
+// GetFromNextPage is a wrapper function to send a GET request and then
+// perform`rule` on the response from GET.
 func GetFromNextPage(url string, rule ruler.Interface) string {
 	resp, err := Get(url)
 

@@ -14,7 +14,7 @@ import (
 const (
 	ResponsePrefix = "SH_RES"
 
-	MaxPhantomInstance = 2
+	MaxPhantomInstance = 3
 
 	MaxTimeoutSecond = 5
 )
@@ -132,13 +132,13 @@ func (p *Phantom) startReadStd() {
 				continue
 			}
 			log.Printf("INFO LOG %s\n", line)
+
 		}
 	}()
 	go func() {
 		scannerErrorOut := bufio.NewScanner(p.errout)
 		for scannerErrorOut.Scan() {
 			line := scannerErrorOut.Text()
-
 			parts := strings.SplitN(line, " ", 2)
 			if strings.HasPrefix(line, ResponsePrefix) {
 				p.errChan <- errors.New(parts[1])
@@ -167,8 +167,8 @@ func (p *Phantom) exit() error {
 	return nil
 }
 
+// Run sends JavaScript script into Phantom stdin, then wait result from stdout and stderr
 func (p *Phantom) Run(jsScript string) (string, error) {
-	log.Println(">>>>>>>>>>>>>>>>>>>>>>>> Run" + jsScript)
 	err := p.sendLine("RUN", jsScript, "END")
 	if err != nil {
 		return "", err
