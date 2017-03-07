@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/songshine/crawler"
@@ -36,7 +37,7 @@ var (
 		"12": 58,
 		"11": 1,
 		"38": 4,
-		"13": 11,
+		"13": 1,
 		"14": 1,
 	}
 	EndPageOfCategory = map[string]int{
@@ -180,12 +181,6 @@ func buildFieldRules() []*crawler.FieldItem {
 }
 
 func main() {
-	// gtk.Init(nil)
-	// go func() {
-	// 	runtime.LockOSThread()
-	// 	gtk.Main()
-	// }()
-
 	getProjectNumberRuler := ruler.NewCutStringRule(
 		`details/`,
 		`.html`,
@@ -236,6 +231,6 @@ func main() {
 		s.Persist(dataCollector)
 	}
 
-	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>Game over...")
+	log.Println(">>> Completed successfully!!")
 	phantom.Exit()
 }

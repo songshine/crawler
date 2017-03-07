@@ -3,10 +3,8 @@ var webpage = require('webpage');
 
 (function() {
     function captureInput() {
-        console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>begin read ");
         var lines = [];
         var l = system.stdin.readLine();
-        console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>end read " + l);
         while (l !== 'END' && l !== 'END\n') {
             lines.push(l);
             l = system.stdin.readLine();
@@ -48,7 +46,6 @@ var webpage = require('webpage');
                     typeof(onReady) === "string" ? eval(onReady) : onReady(); 	                  
                 }
                 clearInterval(interval);  
-                console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>after clear interval");	  
                 setTimeout(captureInput, 0);
             }
         }, 250);

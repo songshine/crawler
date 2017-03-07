@@ -7,7 +7,6 @@ import (
 	"log"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 const MaxPhantomInstance = 3
@@ -55,10 +54,12 @@ func Exit() {
 }
 
 type Phantom struct {
-	cmd    *exec.Cmd
-	in     io.WriteCloser
-	out    io.ReadCloser
-	errout io.ReadCloser
+	cmd     *exec.Cmd
+	in      io.WriteCloser
+	out     io.ReadCloser
+	errout  io.ReadCloser
+	resChan chan string
+	errChan chan error
 }
 
 func start(args ...string) (*Phantom, error) {
@@ -81,16 +82,44 @@ func start(args ...string) (*Phantom, error) {
 	}
 
 	p := Phantom{
-		cmd:    cmd,
-		in:     inPipe,
-		out:    outPipe,
-		errout: errPipe,
+		cmd:     cmd,
+		in:      inPipe,
+		out:     outPipe,
+		errout:  errPipe,
+		resChan: make(chan string), // need buffer?
+		errChan: make(chan error),  // need buffer?
 	}
 	err = cmd.Start()
 
 	if err != nil {
 		return nil, err
 	}
+
+	go func() {
+		scannerOut := bufio.NewScanner(p.out)
+		for scannerOut.Scan() {
+			line := scannerOut.Text()
+			parts := strings.SplitN(line, " ", 2)
+			if strings.HasPrefix(line, "SH_RES") {
+				p.resChan <- parts[1]
+				continue
+			}
+			log.Printf("INFO LOG %s\n", line)
+		}
+	}()
+	go func() {
+		scannerErrorOut := bufio.NewScanner(p.errout)
+		for scannerErrorOut.Scan() {
+			line := scannerErrorOut.Text()
+
+			parts := strings.SplitN(line, " ", 2)
+			if strings.HasPrefix(line, "SH_RES") {
+				p.errChan <- errors.New(parts[1])
+				continue
+			}
+			log.Printf("ERROR LOG %s\n", line)
+		}
+	}()
 
 	return &p, nil
 }
@@ -102,6 +131,9 @@ func (p *Phantom) exit() error {
 	}
 
 	p.in.Close()
+	p.out.Close()
+	p.errout.Close()
+
 	err = p.cmd.Wait()
 	if err != nil {
 		return err
@@ -111,45 +143,15 @@ func (p *Phantom) exit() error {
 }
 
 func (p *Phantom) Run(jsFunc string) (string, error) {
-	log.Println(">>>>>>>>> Run Phantom")
 	err := p.sendLine("RUN", jsFunc, "END")
 	if err != nil {
 		return "", err
 	}
-	scannerOut := bufio.NewScanner(p.out)
-	scannerErrorOut := bufio.NewScanner(p.errout)
-	resMsg := make(chan string)
-	errMsg := make(chan error)
-	go func() {
-		for scannerOut.Scan() {
-			line := scannerOut.Text()
-			parts := strings.SplitN(line, " ", 2)
-			if strings.HasPrefix(line, "SH_RES") {
-				resMsg <- parts[1]
-				close(resMsg)
-				return
-			}
-			log.Printf("INFO LOG %s\n", line)
 
-		}
-	}()
-	go func() {
-		for scannerErrorOut.Scan() {
-			line := scannerErrorOut.Text()
-			parts := strings.SplitN(line, " ", 2)
-			if strings.HasPrefix(line, "SH_RES") {
-				errMsg <- errors.New(parts[1])
-				close(errMsg)
-				return
-			}
-			log.Printf("ERROR LOG %s\n", line)
-		}
-	}()
-	time.Sleep(time.Millisecond * 6)
 	select {
-	case text := <-resMsg:
+	case text := <-p.resChan:
 		return text, nil
-	case err := <-errMsg:
+	case err := <-p.errChan:
 		return "", err
 	}
 }

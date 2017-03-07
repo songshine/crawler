@@ -24,8 +24,7 @@ func New(max int) Interface {
 }
 
 func (p *executorPool) Take() *struct{} {
-	ticket := <-p.tickets
-	return ticket
+	return <-p.tickets
 }
 
 func (p *executorPool) Return(ticket *struct{}) {
