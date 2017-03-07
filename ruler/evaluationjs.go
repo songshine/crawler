@@ -15,10 +15,10 @@ func init() {
 	globalPhantomjsPool = pool.New(maxRuningPhantomjs)
 }
 
-func NewEvaluationJSRule(script, exclude string, timeoutInMillis int, transFunc transStringFunc) Interface {
+func NewEvaluationJSRule(elemJS, checkJS string, timeoutInMillis int, transFunc transStringFunc) Interface {
 	r := &evaluationJSRule{
-		script:          script,
-		exclude:         exclude,
+		elemJS:          elemJS,
+		checkJS:         checkJS,
 		timeoutInMillis: timeoutInMillis,
 		trans:           transFunc,
 	}
@@ -27,22 +27,22 @@ func NewEvaluationJSRule(script, exclude string, timeoutInMillis int, transFunc 
 
 // implement ExtractStringRuler
 type evaluationJSRule struct {
-	script, exclude string
+	elemJS, checkJS string
 	timeoutInMillis int
 	trans           transStringFunc
 }
 
 func (r *evaluationJSRule) Get(url string, distinct bool) []string {
 	// ONLY SUPPORT TO RETURN ONE VALUE NOW.
-	return r.trans.transStringSlice([]string{evaluateJS(url, r.script, r.exclude, r.timeoutInMillis)})
+	return r.trans.transStringSlice([]string{evaluateJS(url, r.elemJS, r.checkJS, r.timeoutInMillis)})
 }
 
 func (r *evaluationJSRule) GetFirst(url string) string {
-	return r.trans.transString(evaluateJS(url, r.script, r.exclude, r.timeoutInMillis))
+	return r.trans.transString(evaluateJS(url, r.elemJS, r.checkJS, r.timeoutInMillis))
 }
 
-func evaluateJS(url, elemJs string, excludeJs string, timeoutInMillis int) string {
-	js := fmt.Sprintf(jsBody, url, excludeJs, elemJs, timeoutInMillis)
+func evaluateJS(url, elemJs string, checkJS string, timeoutInMillis int) string {
+	js := fmt.Sprintf(jsBody, url, checkJS, elemJs, timeoutInMillis)
 	p := phantom.Take()
 	defer phantom.Return(p)
 	result, err := p.Run(js)

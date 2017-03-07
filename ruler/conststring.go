@@ -8,7 +8,7 @@ func NewConstStringRule(cons string, transFunc transStringFunc) Interface {
 	return r
 }
 
-// implement ExtractStringRuler
+// implement Interface
 type constStringRule struct {
 	cst   string
 	trans transStringFunc

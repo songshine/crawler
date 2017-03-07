@@ -4,15 +4,25 @@ import (
 	"bufio"
 	"errors"
 	"io"
+	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"strings"
 )
 
-const MaxPhantomInstance = 3
-const MaxTimeoutSecond = 5
+const (
+	ResponsePrefix = "SH_RES"
 
-var pool *phantomPool
+	MaxPhantomInstance = 3
+
+	MaxTimeoutSecond = 5
+)
+
+var (
+	pool            *phantomPool
+	wrapperFileName string
+)
 
 type phantomPool struct {
 	max int
@@ -20,6 +30,13 @@ type phantomPool struct {
 }
 
 func init() {
+	var err error
+	wrapperFileName, err = createWrapperFile()
+	if err != nil {
+		log.Printf("Create wrapper file failed")
+		return
+	}
+
 	pool = &phantomPool{
 		max: MaxPhantomInstance,
 		ps:  make(chan *Phantom, MaxPhantomInstance),
@@ -35,14 +52,27 @@ func init() {
 	}
 }
 
+// Phantom represents a process of Phantomjs.
+type Phantom struct {
+	cmd     *exec.Cmd
+	in      io.WriteCloser
+	out     io.ReadCloser
+	errout  io.ReadCloser
+	resChan chan string
+	errChan chan error
+}
+
+// Take takes a Phantom instance from Phantom pool.
 func Take() *Phantom {
 	return <-pool.ps
 }
 
+// Return gives back a Phantom instance to Phantom pool.
 func Return(p *Phantom) {
 	pool.ps <- p
 }
 
+// Exit exits all Phantom instances in pool.
 func Exit() {
 	close(pool.ps)
 	for p := range pool.ps {
@@ -53,17 +83,8 @@ func Exit() {
 	}
 }
 
-type Phantom struct {
-	cmd     *exec.Cmd
-	in      io.WriteCloser
-	out     io.ReadCloser
-	errout  io.ReadCloser
-	resChan chan string
-	errChan chan error
-}
-
-func start(args ...string) (*Phantom, error) {
-	args = append(args, "data/wrapper.js")
+func start(scriptPath string, args ...string) (*Phantom, error) {
+	args = append(args, wrapperFileName)
 	cmd := exec.Command("phantomjs", args...)
 
 	inPipe, err := cmd.StdinPipe()
@@ -94,13 +115,17 @@ func start(args ...string) (*Phantom, error) {
 	if err != nil {
 		return nil, err
 	}
+	p.startReadStd()
+	return &p, nil
+}
 
+func (p *Phantom) startReadStd() {
 	go func() {
 		scannerOut := bufio.NewScanner(p.out)
 		for scannerOut.Scan() {
 			line := scannerOut.Text()
 			parts := strings.SplitN(line, " ", 2)
-			if strings.HasPrefix(line, "SH_RES") {
+			if strings.HasPrefix(line, ResponsePrefix) {
 				p.resChan <- parts[1]
 				continue
 			}
@@ -113,15 +138,13 @@ func start(args ...string) (*Phantom, error) {
 			line := scannerErrorOut.Text()
 
 			parts := strings.SplitN(line, " ", 2)
-			if strings.HasPrefix(line, "SH_RES") {
+			if strings.HasPrefix(line, ResponsePrefix) {
 				p.errChan <- errors.New(parts[1])
 				continue
 			}
 			log.Printf("ERROR LOG %s\n", line)
 		}
 	}()
-
-	return &p, nil
 }
 
 func (p *Phantom) exit() error {
@@ -142,8 +165,8 @@ func (p *Phantom) exit() error {
 	return nil
 }
 
-func (p *Phantom) Run(jsFunc string) (string, error) {
-	err := p.sendLine("RUN", jsFunc, "END")
+func (p *Phantom) Run(jsScript string) (string, error) {
+	err := p.sendLine("RUN", jsScript, "END")
 	if err != nil {
 		return "", err
 	}
@@ -169,3 +192,77 @@ func (p *Phantom) sendLine(lines ...string) error {
 	}
 	return nil
 }
+
+func createWrapperFile() (string, error) {
+	wrapper, err := ioutil.TempFile("", "go-phantom-wrapper")
+	if err != nil {
+		return "", err
+	}
+	defer wrapper.Close()
+
+	err = ioutil.WriteFile(wrapper.Name(), []byte(jsEntry), os.ModeType)
+	if err != nil {
+		return "", err
+	}
+
+	return wrapper.Name(), nil
+}
+
+var jsEntry = `
+var system = require('system');
+var webpage = require('webpage');
+
+(function() {
+    function captureInput() {
+        var lines = [];
+        var l = system.stdin.readLine();
+        while (l !== 'END' && l !== 'END\n') {
+            lines.push(l);
+            l = system.stdin.readLine();
+        }
+        var command = lines.splice(0, 1)[0];
+        if (command === 'EVAL' || command === 'EVAL\n') {
+        try {
+            eval.call(this, lines.join('\n'));
+        } catch (ex) {
+            system.stderr.writeLine("Error during EVAL of" + lines.join('\n'));
+            setTimeout(captureInput, 0);
+        }
+        } else if (command === 'RUN' || command === 'RUN\n') {
+            try {
+                eval(lines.join('\n'));
+            }catch (ex) {
+                system.stderr.writeLine("Error" + " " + JSON.stringify(ex) + "\n");
+                system.stderr.writeLine("SH_RES" + " " + "UnknownError" + "\n");
+                setTimeout(captureInput, 0);                
+            }  
+                
+        } else {
+            system.stderr.writeLine("Invalid command:<" + command+">");
+            setTimeout(captureInput, 0);
+        }        
+    }
+
+    function waitFor(testFx, onReady, timeOutMillis) {
+        var maxtimeOutMillis = timeOutMillis ? timeOutMillis : 3000,
+        start = new Date().getTime(),
+        condition = false;
+        var interval = setInterval(function() {
+            if ( (new Date().getTime() - start < maxtimeOutMillis) && !condition ) {
+                condition = (typeof(testFx) === "string" ? eval(testFx) : testFx()); 
+            } else {
+                if(!condition) {
+                    system.stderr.writeLine("SH_RES" + " " + "TimoutError" + "\n");
+                } else {      
+                    typeof(onReady) === "string" ? eval(onReady) : onReady(); 	                  
+                }
+                clearInterval(interval);  
+                setTimeout(captureInput, 0);
+            }
+        }, 250);
+    };
+    
+    setTimeout(captureInput, 0);   
+}());
+
+`
