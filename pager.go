@@ -52,3 +52,33 @@ func NewPostListPager(url string, pageFunc fmtPageFunc, from, to int) ListPager 
 
 	return p
 }
+
+type listPagerGet struct {
+	*defaultListPager
+	pageURLFunc      fmtPageFunc
+	fromPage, toPage int
+}
+
+func NewGetListPager(pageURLFunc fmtPageFunc, from, to int) ListPager {
+	p := &listPagerGet{
+		fromPage:         from,
+		toPage:           to,
+		pageURLFunc:      pageURLFunc,
+		defaultListPager: newDefaultListPager(),
+	}
+
+	go func() {
+		for s := p.fromPage; s <= p.toPage; s++ {
+			url := p.pageURLFunc(s)
+			resp, err := Get(url)
+			if err != nil {
+				continue
+			}
+			p.respChan <- resp
+
+		}
+		close(p.respChan)
+	}()
+
+	return p
+}
