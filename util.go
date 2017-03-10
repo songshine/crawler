@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/axgle/mahonia"
 	"github.com/songshine/crawler/ruler"
 )
 
@@ -45,9 +46,15 @@ func Get(url string) (resp string, err error) {
 
 	defer r.Body.Close()
 	respData, err := ioutil.ReadAll(r.Body)
+
 	if err != nil {
 		log.Printf("GET: Fail to parse response, error %v", err)
 		return "", err
+	}
+
+	if strings.Contains(r.Header.Get("Content-Type"), "GBK") {
+		// GBK => UTF-8
+		return convertGBKToUTF8(string(respData)), nil
 	}
 
 	return string(respData), nil
@@ -62,4 +69,9 @@ func GetFromNextPage(url string, rule ruler.Interface) string {
 		return ""
 	}
 	return rule.GetFirst(resp)
+}
+
+func convertGBKToUTF8(gbkString string) string {
+	dec := mahonia.NewDecoder("gbk")
+	return dec.ConvertString(gbkString)
 }
