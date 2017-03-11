@@ -3,9 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
+
+	"strings"
 
 	"github.com/songshine/crawler"
-	"github.com/songshine/crawler/phantom"
 	"github.com/songshine/crawler/ruler"
 )
 
@@ -16,15 +18,15 @@ const (
 var (
 	Categories = map[string]string{
 		"121288001": "科技",
-		"123330001": "农业",
-		"122018001": "动漫",
-		"121292001": "设计",
-		"121280001": "公益",
-		"121284001": "娱乐",
-		"121278001": "影音",
-		"121274002": "书籍",
-		"122020001": "游戏",
-		"123332001": "其他",
+		// "123330001": "农业",
+		// "122018001": "动漫",
+		// "121292001": "设计",
+		// "121280001": "公益",
+		// "121284001": "娱乐",
+		// "121278001": "影音",
+		// "121274002": "书籍",
+		// "122020001": "游戏",
+		// "123332001": "其他",
 	}
 
 	StartPagesOfCategory = map[string]int{
@@ -60,128 +62,109 @@ func buildFieldRules() []*crawler.FieldItem {
 			FromURL: true,
 			Rule:    ruler.NewRegexStringRule("[0-9]+", nil),
 		},
-		// &crawler.FieldItem{
-		// 	Name: "项目名称",
-		// 	Rule: ruler.NewCutStringRule(`<p class="p-title">`, `</p>`, nil),
-		// },
-		// &crawler.FieldItem{
-		// 	Name: "项目回报总类",
-		// 	Rule: ruler.NewCutStringRule(
-		// 		`<!-- 档位 -->`,
-		// 		`<!--price-box无私奉献-->`,
-		// 		func(s string) string {
-		// 			return strconv.Itoa(strings.Count(s, `<!--price-box-->`))
-		// 		},
-		// 	),
-		// },
-		// &crawler.FieldItem{
-		// 	Name: "最低投资额",
-		// 	Rule: ruler.NewCutStringRule(
-		// 		`<!-- 档位 -->`,
-		// 		`<!--price-box无私奉献-->`,
-		// 		func(s string) string {
-		// 			rule := ruler.NewCutStringRule(
-		// 				`<!--price-box-->`,
-		// 				`<!--price-box end-->`,
-		// 				func(s string) string {
-		// 					if strings.Contains(s, "抽奖档") {
-		// 						return ""
-		// 					}
-		// 					rule := ruler.NewCutStringRule(
-		// 						`￥<span>`,
-		// 						`</span>`,
-		// 						nil,
-		// 					)
+		&crawler.FieldItem{
+			Name: "项目名称",
+			Rule: ruler.NewCutStringRule(`"name":"`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+		},
+		&crawler.FieldItem{
+			Name: "众筹状态",
+			Rule: ruler.NewCutStringRule(`"status":"`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+		},
+		&crawler.FieldItem{
+			Name: "目标金额",
+			Rule: ruler.NewCutStringRule(`"target_money": "`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+		},
+		&crawler.FieldItem{
+			Name: "实际筹资额",
+			Rule: ruler.NewCutStringRule(`"curr_money": "`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+		},
+		&crawler.FieldItem{
+			Name: "项目支持人数",
+			Rule: ruler.NewCutStringRule(`"support_person": "`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+		},
+		&crawler.FieldItem{
+			Name: "项目回报种类",
+			Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
+		},
 
-		// 					return strings.TrimSpace(rule.GetFirst(s))
-		// 				},
-		// 			)
+		&crawler.FieldItem{
+			Name: "最低投资额",
+			Rule: ruler.NewCutStringRule(`"items":`, `]`,
+				func(s string) string {
+					rule := ruler.NewCutStringRule(
+						`"price": "`,
+						`"`,
+						func(s string) string {
+							return strings.TrimSpace(s)
+						},
+					)
+					prices := rule.Get(s, true)
+					minPrice, found := 0.0, false
+					for _, p := range prices {
+						pi, err := strconv.ParseFloat(p, 64)
+						if err == nil && (!found || pi < minPrice) && pi != 1.0 {
+							found = true
+							minPrice = pi
+						}
+					}
+					return strconv.FormatFloat(minPrice, 'f', 2, 64)
+				}),
+		},
+		&crawler.FieldItem{
+			Name: "项目图片数量",
+			Rule: ruler.NewNooptRule(func(s string) string { return strconv.Itoa(strings.Count(s, `IMG src=`)) }),
+		},
+		&crawler.FieldItem{
+			Name:    "项目进展数",
+			FromURL: true,
+			Rule: ruler.NewRegexStringRule("[0-9]+", func(s string) string {
+				url := fmt.Sprintf(`https://izhongchou.taobao.com/dream/ajax/get_project_feeds.htm?project_id=%s&_tb_token_=xDEcRdmNPq`, "20056473")
+				res, err := crawler.Get(url)
+				if err != nil {
 
-		// 			prices := rule.Get(s, false)
-		// 			minPrice, found := 0, false
-		// 			for _, p := range prices {
-		// 				pi, err := strconv.Atoi(p)
-		// 				if err == nil && (!found || pi < minPrice) {
-		// 					found = true
-		// 					minPrice = pi
-		// 				}
-		// 			}
-		// 			return strconv.Itoa(minPrice)
-		// 		},
-		// 	),
+					return "err"
+				}
+				fmt.Println(url, res)
+				return strconv.Itoa(strings.Count(res, `"feed_id":`))
+			}),
+		},
+		// &crawler.FieldItem{
+		// 	Name: "喜欢数",
+		// 	Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
 		// },
 		// &crawler.FieldItem{
-		// 	Name: "项目图片数量",
-		// 	Rule: ruler.NewCutStringRule(
-		// 		`<!--图片部分-->`,
-		// 		`<!--图片部分end-->`,
-		// 		func(s string) string {
-		// 			return strconv.Itoa(strings.Count(s, `<img alt`))
-		// 		},
-		// 	),
+		// 	Name: "项目结束时间",
+		// 	Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
 		// },
 		// &crawler.FieldItem{
-		// 	Name:    "发起人支持的项目数",
-		// 	FromURL: true,
-		// 	Rule: ruler.NewRegexStringRule(
-		// 		"[0-9]+",
-		// 		func(s string) string {
-		// 			newURL := fmt.Sprintf(UserCenterFmt, s)
-		// 			rule := ruler.NewXPathNodeRule(
-		// 				`//*[@id="mainframe"]/div[2]/div[1]/div[1]/div[2]/a[1]/i`,
-		// 				func(s string) string {
-		// 					return strings.TrimSpace(s)
-		// 				},
-		// 			)
-		// 			return crawler.GetFromNextPage(newURL, rule)
-		// 		},
-		// 	),
+		// 	Name: "是否制作视频",
+		// 	Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
 		// },
 		// &crawler.FieldItem{
-		// 	Name:    "发起人历史发起的项目",
-		// 	FromURL: true,
-		// 	Rule: ruler.NewRegexStringRule(
-		// 		"[0-9]+",
-		// 		func(s string) string {
-		// 			newURL := fmt.Sprintf(UserCenterFmt, s)
-		// 			rule := ruler.NewXPathNodeRule(
-		// 				`//*[@id="mainframe"]/div[2]/div[1]/div[1]/div[2]/a[2]/i`,
-		// 				func(s string) string {
-		// 					return strings.TrimSpace(s)
-		// 				},
-		// 			)
-		// 			return crawler.GetFromNextPage(newURL, rule)
-		// 		},
-		// 	),
+		// 	Name: "最低投资支持人数",
+		// 	Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
 		// },
 		// &crawler.FieldItem{
-		// 	Name:    "话题数",
-		// 	FromURL: true,
-		// 	Rule: ruler.NewEvaluationJSRule(
-		// 		`document.getElementById("topicBtn").childNodes[1].innerHTML`,
-		// 		`document.getElementById("topicBtn").childNodes[1].innerHTML !== "0"`,
-		// 		5000,
-		// 		func(s string) string {
-		// 			return strings.TrimSpace(s)
-		// 		},
-		// 	),
+		// 	Name: "发起人所在地",
+		// 	Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
 		// },
 		// &crawler.FieldItem{
-		// 	Name:    "关注数",
-		// 	FromURL: true,
-		// 	Rule: ruler.NewEvaluationJSRule(
-		// 		`document.getElementById("focusCount").innerHTML`,
-		// 		`document.getElementById("focusCount").innerHTML !== "(0)"`,
-		// 		5000,
-		// 		func(s string) string {
-		// 			return strings.TrimSpace(s)
-		// 		},
-		// 	),
+		// 	Name: "发起人积分",
+		// 	Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
+		// },
+		// &crawler.FieldItem{
+		// 	Name: "是否有专利证书",
+		// 	Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
+		// },
+		// &crawler.FieldItem{
+		// 	Name: "个人还是团队",
+		// 	Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
 		// },
 	}
 }
 
 func main() {
+
 	for code, name := range Categories {
 		startPage := StartPagesOfCategory[code]
 		if startPage == 0 {
@@ -203,9 +186,12 @@ func main() {
 		)
 
 		pageRule := ruler.NewRegexStringRule(
-			`//izhongchou.taobao.com/dreamdetail.htm?id=[0-9]+`,
+			`//izhongchou.taobao.com/dreamdetail.htm\?id=[0-9]+`,
 			func(s string) string {
-				return "http:" + s
+				url := "http:" + s
+				crawler.Get(url)
+				rule := ruler.NewRegexStringRule("id=[0-9]+", nil)
+				return `https://izhongchou.taobao.com/dream/ajax/getProjectForDetail.htm?` + rule.GetFirst(s)
 			},
 		)
 		fieldItems := []*crawler.FieldItem{
@@ -224,5 +210,4 @@ func main() {
 	}
 
 	log.Println(">>> Completed successfully!!")
-	phantom.Exit()
 }

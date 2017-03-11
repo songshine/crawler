@@ -1,9 +1,6 @@
 package ruler
 
-import (
-	"fmt"
-	"regexp"
-)
+import "regexp"
 
 func NewRegexStringRule(regex string, transFunc transStringFunc) Interface {
 	r := &regexStringMatchRule{
@@ -22,7 +19,6 @@ type regexStringMatchRule struct {
 func (r *regexStringMatchRule) Get(content string, distinct bool) []string {
 	rex := regexp.MustCompile(r.match)
 	matches := rex.FindAllString(content, -1)
-	fmt.Println(content, r.match, matches)
 	if !distinct {
 		return r.trans.transStringSlice(matches)
 	}

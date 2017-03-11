@@ -5,16 +5,22 @@ type Interface interface {
 	GetFirst(content string) string
 }
 
-type NoopRule struct {
-	Trans transStringFunc
+type noopRule struct {
+	trans transStringFunc
 }
 
-func (r *NoopRule) Get(content string, distinct bool) []string {
-	return []string{r.Trans.transString(content)}
+func NewNooptRule(trans transStringFunc) Interface {
+	return &noopRule{
+		trans: trans,
+	}
+
+}
+func (r *noopRule) Get(content string, distinct bool) []string {
+	return []string{r.trans.transString(content)}
 }
 
-func (r *NoopRule) GetFirst(content string) string {
-	return r.Trans.transString(content)
+func (r *noopRule) GetFirst(content string) string {
+	return r.trans.transString(content)
 }
 
 type transStringFunc func(s string) string

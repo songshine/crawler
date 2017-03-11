@@ -18,38 +18,24 @@ type cutStringRule struct {
 }
 
 func (r *cutStringRule) Get(content string, distinct bool) []string {
-	var result []string
-	si := strings.Index(content, r.start)
-	if si == -1 {
-		return result
-	}
-	si += len(r.start)
-	ei := strings.Index(content, r.end)
+	var ts []string
+	for {
+		s, i := r.getNext(content)
+		if i == -1 {
+			break
+		}
+		ts = append(ts, s)
+		content = content[i:]
 
-	if ei == -1 {
-		return result
-	}
-
-	if ei <= si || ei >= len(content) {
-		return result
 	}
 
-	match := content[si:ei]
-	if match == "" {
-		return result
-	}
-	result = append(result, r.trans.transString(match))
-	ei += len(r.end)
-	if ei >= len(content) {
-		return result
-	}
-	subs := r.Get(content[ei:], distinct)
 	if !distinct {
-		result = append(result, subs...)
-		return result
+		return ts
 	}
+
+	var result []string
 	dupCheck := make(map[string]struct{})
-	for _, s := range subs {
+	for _, s := range ts {
 		if _, ok := dupCheck[s]; ok {
 			continue
 		}
@@ -60,14 +46,24 @@ func (r *cutStringRule) Get(content string, distinct bool) []string {
 }
 
 func (r *cutStringRule) GetFirst(content string) string {
+	s, _ := r.getNext(content)
+	return s
+}
+
+func (r *cutStringRule) getNext(content string) (string, int) {
 	s := strings.Index(content, r.start)
 	if s == -1 {
-		return ""
+		return "", -1
 	}
 	s += len(r.start)
-	e := strings.Index(content, r.end)
-	if e > s && e < len(content) {
-		return r.trans.transString(content[s:e])
+	if s >= len(content) {
+		return "", -1
 	}
-	return ""
+
+	e := strings.Index(content[s:], r.end)
+
+	if e == -1 {
+		return "", -1
+	}
+	return r.trans.transString(content[s : s+e]), s + e
 }

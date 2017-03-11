@@ -181,6 +181,7 @@ func buildFieldRules() []*crawler.FieldItem {
 }
 
 func main() {
+	phantom.Enable = true
 	getProjectNumberRuler := ruler.NewCutStringRule(
 		`details/`,
 		`.html`,
@@ -232,5 +233,8 @@ func main() {
 	}
 
 	log.Println(">>> Completed successfully!!")
-	phantom.Exit()
+	if phantom.Enable {
+		phantom.Exit()
+	}
+
 }

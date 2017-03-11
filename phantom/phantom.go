@@ -12,14 +12,14 @@ import (
 )
 
 const (
-	ResponsePrefix = "SH_RES"
-
 	MaxPhantomInstance = 3
 
 	MaxTimeoutSecond = 5
 )
 
 var (
+	Enable          = false
+	ResponsePrefix  = "SH_RES"
 	pool            *phantomPool
 	wrapperFileName string
 )
@@ -30,6 +30,9 @@ type phantomPool struct {
 }
 
 func init() {
+	if !Enable {
+		return
+	}
 	var err error
 	wrapperFileName, err = createWrapperFile()
 	log.Printf(">>> Wrapper file name: %s", wrapperFileName)
