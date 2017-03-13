@@ -36,7 +36,7 @@ func (r *xPathNodeRule) GetFirst(content string) string {
 
 	if err != nil {
 		log.Printf("Invalid html: %s, error: %v\n", content, err)
-		return ""
+		return r.trans.transString("")
 	}
 
 	var b bytes.Buffer
@@ -49,12 +49,12 @@ func (r *xPathNodeRule) GetFirst(content string) string {
 
 	if xmlerr != nil {
 		log.Printf("Invalid html: %s, error: %v\n", content, xmlerr)
-		return ""
+		return r.trans.transString("")
 	}
 
 	path := xmlpath.MustCompile(r.xpath)
 	if value, ok := path.String(xmlroot); ok {
 		return r.trans.transString(value)
 	}
-	return ""
+	return r.trans.transString("")
 }

@@ -53,17 +53,17 @@ func (r *cutStringRule) GetFirst(content string) string {
 func (r *cutStringRule) getNext(content string) (string, int) {
 	s := strings.Index(content, r.start)
 	if s == -1 {
-		return "", -1
+		return r.trans.transString(""), -1
 	}
 	s += len(r.start)
 	if s >= len(content) {
-		return "", -1
+		return r.trans.transString(""), -1
 	}
 
 	e := strings.Index(content[s:], r.end)
 
 	if e == -1 {
-		return "", -1
+		return r.trans.transString(""), -1
 	}
 	return r.trans.transString(content[s : s+e]), s + e
 }

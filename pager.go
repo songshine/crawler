@@ -1,5 +1,7 @@
 package crawler
 
+import "fmt"
+
 type fmtPageFunc func(int) string
 
 type ListPager interface {
@@ -70,6 +72,7 @@ func NewGetListPager(pageURLFunc fmtPageFunc, from, to int) ListPager {
 	go func() {
 		for s := p.fromPage; s <= p.toPage; s++ {
 			url := p.pageURLFunc(s)
+			fmt.Println(">>>>>>>>>>>>>>>>>>>>", url)
 			resp, err := Get(url)
 			if err != nil {
 				continue
