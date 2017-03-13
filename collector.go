@@ -4,14 +4,12 @@ import (
 	"log"
 	"sync"
 
-	"time"
-
 	"github.com/songshine/crawler/pool"
 	"github.com/songshine/crawler/ruler"
 )
 
 const maxCache = 500
-const maxWorker = 1
+const maxWorker = 10
 
 type (
 	// FieldValues represents all useful data from a web page.
@@ -109,5 +107,5 @@ func (c *dataCollectorImp) colllecFromURL(url string, ticket *struct{}) {
 		vals = append(vals, val)
 	}
 	c.result <- vals
-	time.Sleep(time.Millisecond * 1200)
+	//time.Sleep(time.Millisecond * 1200)
 }

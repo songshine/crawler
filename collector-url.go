@@ -32,6 +32,7 @@ func NewURLCollector(p ListPager, r ruler.Interface) URLCollector {
 			if done {
 				break
 			}
+
 			all := r.Get(p, true)
 			for _, a := range all {
 				c.urlChan <- a

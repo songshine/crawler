@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
-	"net/http/cookiejar"
 	"strconv"
 
 	"strings"
@@ -14,69 +12,41 @@ import (
 )
 
 const (
-	PageURLFmt = "http://zc.suning.com/project/browseList.htm?c=01&t=&s=&keyWords=&pageNumber=%d"
+	PageURLFmt = "http://zc.suning.com/project/browseList.htm?c=%s&t=&s=&keyWords=&pageNumber=%d"
 )
 
 var (
 	Categories = map[string]string{
-		"121288001": "科技",
-		"123330001": "农业",
-		"122018001": "动漫",
-		"121292001": "设计",
-		"121280001": "公益",
-		"121284001": "娱乐",
-		"121278001": "影音",
-		"121274002": "书籍",
-		"122020001": "游戏",
-		"123332001": "其他",
+		"01": "科技",
+		// "02": "设计",
+		// "03": "公益",
+		// "04": "农业",
+		// "05": "文化",
+		// "06": "娱乐",
+		// "07": "其他",
 	}
 
 	StartPagesOfCategory = map[string]int{
-		"121288001": 1,
-		"123330001": 1,
-		"122018001": 1,
-		"121292001": 1,
-		"121280001": 1,
-		"121284001": 1,
-		"121278001": 1,
-		"121274002": 1,
-		"122020001": 1,
-		"123332001": 1,
+		"01": 1,
+		"02": 1,
+		"03": 1,
+		"04": 1,
+		"05": 1,
+		"06": 1,
+		"07": 1,
 	}
 	EndPageOfCategory = map[string]int{
-		"121288001": 101,
-		"123330001": 115,
-		"122018001": 23,
-		"121292001": 67,
-		"121280001": 20,
-		"121284001": 10,
-		"121278001": 11,
-		"121274002": 3,
-		"122020001": 2,
-		"123332001": 9,
+		"01": 20,
+		"02": 9,
+		"03": 2,
+		"04": 16,
+		"05": 4,
+		"06": 5,
+		"07": 3,
 	}
 )
 
 func buildFieldRules() []*crawler.FieldItem {
-	var tbToken string
-	cookieJar, _ := cookiejar.New(nil)
-	httpClient := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return nil
-		},
-		Jar: cookieJar,
-	}
-	testURL := `https://izhongchou.taobao.com/dreamdetail.htm?id=20058471`
-	crawler.GetWithClient(testURL, httpClient)
-
-	testReq, _ := http.NewRequest("GET", testURL, nil)
-	cookies := httpClient.Jar.Cookies(testReq.URL)
-	for _, c := range cookies {
-		if c.Name == "_tb_token_" {
-			tbToken = c.Value
-			break
-		}
-	}
 	return []*crawler.FieldItem{
 		&crawler.FieldItem{
 			Name:    "项目编号",
@@ -85,38 +55,61 @@ func buildFieldRules() []*crawler.FieldItem {
 		},
 		&crawler.FieldItem{
 			Name: "项目名称",
-			Rule: ruler.NewCutStringRule(`"name":"`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+			Rule: ruler.NewCutStringRule(`<h1 class="item-detail-title">`, `</h1>`, nil),
 		},
 		&crawler.FieldItem{
 			Name: "众筹状态",
-			Rule: ruler.NewCutStringRule(`"status":"`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+			Rule: ruler.NewXPathNodeRule(`/html/body/div[5]/div/div[2]/div[4]/div[1]`, nil),
 		},
 		&crawler.FieldItem{
 			Name: "目标金额",
-			Rule: ruler.NewCutStringRule(`"target_money": "`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+			Rule: ruler.NewXPathNodeRule(
+				`/html/body/div[5]/div/div[2]/div[4]/div[3]/strong[2]`,
+				func(s string) string {
+					s = strings.TrimPrefix(s, "¥")
+					s = strings.TrimSpace(s)
+					return strings.Replace(s, "\n", "", -1)
+				}),
 		},
 		&crawler.FieldItem{
 			Name: "实际筹资额",
-			Rule: ruler.NewCutStringRule(`"curr_money": "`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+			Rule: ruler.NewXPathNodeRule(`/html/body/div[5]/div/div[2]/div[4]/div[2]/span[3]`,
+				func(s string) string {
+					s = strings.TrimSpace(s)
+					return strings.Replace(s, "\n", "", -1)
+				}),
 		},
 		&crawler.FieldItem{
 			Name: "项目支持人数",
-			Rule: ruler.NewCutStringRule(`"support_person": "`, `"`, func(s string) string { return crawler.Unicode2UTF8(s) }),
+			Rule: ruler.NewCutStringRule(
+				`<div class="item-actor-num">已有<strong>`,
+				`</strong>人支持该项目</div>`,
+				func(s string) string {
+					return strings.TrimSpace(s)
+				}),
 		},
 		&crawler.FieldItem{
 			Name: "项目回报种类",
-			Rule: ruler.NewCutStringRule(`"items":`, `]`, func(s string) string { return strconv.Itoa(strings.Count(s, `"item_id"`)) }),
+			Rule: ruler.NewCutStringRule(
+				`<div class="item-support-level">`,
+				`<div class="item-support-risk">`,
+				func(s string) string {
+					return strconv.Itoa(strings.Count(s, `name="zc_detail_support_`))
+				}),
 		},
 
 		&crawler.FieldItem{
 			Name: "最低投资额",
-			Rule: ruler.NewCutStringRule(`"items":`, `]`,
+			Rule: ruler.NewCutStringRule(
+				`<div class="item-support-level">`,
+				`<div class="item-support-risk">`,
 				func(s string) string {
 					rule := ruler.NewCutStringRule(
-						`"price": "`,
-						`"`,
+						`<strong class="price">`,
+						`</strong>`,
 						func(s string) string {
-							return strings.TrimSpace(s)
+							s = strings.TrimSpace(s)
+							return strings.Replace(s, "\n", "", -1)
 						},
 					)
 					prices := rule.Get(s, true)
@@ -133,48 +126,64 @@ func buildFieldRules() []*crawler.FieldItem {
 		},
 		&crawler.FieldItem{
 			Name: "项目图片数量",
-			Rule: ruler.NewNooptRule(func(s string) string { return strconv.Itoa(strings.Count(s, `IMG src=`)) }),
+			Rule: ruler.NewCutStringRule(
+				`<div class="item-detail-info`,
+				`<div class="item-topic`,
+				func(s string) string {
+					return strconv.Itoa(strings.Count(s, `<img`))
+				}),
 		},
 		&crawler.FieldItem{
-			Name:    "项目进展数",
-			FromURL: true,
-			Rule: ruler.NewRegexStringRule("[0-9]+", func(s string) string {
-				url := fmt.Sprintf(`https://izhongchou.taobao.com/dream/ajax/get_project_feeds.htm?project_id=%s`, s)
-				if tbToken != "" {
-					url += fmt.Sprintf("&_tb_token_=%s", tbToken)
-				}
-				res, err := crawler.GetWithClient(url, httpClient)
-				if err != nil {
-					return ""
-				}
-				return strconv.Itoa(strings.Count(res, `"feed_id":`))
-			}),
-		},
-		&crawler.FieldItem{
-			Name: "喜欢数",
-			Rule: ruler.NewCutStringRule(`"focus_count":"`, `",`, nil),
-		},
-		&crawler.FieldItem{
-			Name: "项目结束时间",
-			Rule: ruler.NewCutStringRule(`"end_date": "`, `",`, nil),
-		},
-		&crawler.FieldItem{
-			Name: "是否制作视频",
-			Rule: ruler.NewCutStringRule(`"video": "`, `",`,
+			Name: "关注数",
+			Rule: ruler.NewCutStringRule(
+				`<span name="zc_detail_guanzhu_01">关注 <i>`,
+				`</i></span>`,
 				func(s string) string {
 					if s == "" {
+						return "0"
+					}
+
+					return s
+				},
+			),
+		},
+		&crawler.FieldItem{
+			Name: "话题数",
+			Rule: ruler.NewXPathNodeRule(
+				`/html/body/div[5]/div/div[1]/div/ul/li[2]/a/span`,
+				func(s string) string {
+					if s == "" {
+						return "0"
+					}
+
+					return s
+				},
+			),
+		},
+
+		&crawler.FieldItem{
+			Name: "是否制作视频",
+			Rule: ruler.NewNooptRule(
+				func(s string) string {
+					if !strings.Contains(s, `title="Adobe Flash Player"`) {
 						return "否"
 					}
 					return "是"
 				}),
 		},
 		&crawler.FieldItem{
+			Name: "预计回报发送时间",
+			Rule: ruler.NewCutStringRule(`<p class="detail-time">预计发放时间：`, `</p>`, nil),
+		},
+		&crawler.FieldItem{
 			Name: "最低投资支持人数",
-			Rule: ruler.NewCutStringRule(`"items":`, `]`,
+			Rule: ruler.NewCutStringRule(
+				`<div class="item-support-level">`,
+				`<div class="item-support-risk">`,
 				func(s string) string {
 					rulePrice := ruler.NewCutStringRule(
-						`"price": "`,
-						`"`,
+						`<strong class="price">`,
+						`</strong>`,
 						func(s string) string {
 							return strings.TrimSpace(s)
 						},
@@ -182,14 +191,15 @@ func buildFieldRules() []*crawler.FieldItem {
 					prices := rulePrice.Get(s, false)
 
 					rulePerson := ruler.NewCutStringRule(
-						`"support_person": "`,
-						`"`,
+						`无限额，`,
+						`位支持者`,
 						func(s string) string {
 							return strings.TrimSpace(s)
 						},
 					)
 					persons := rulePerson.Get(s, false)
 
+					fmt.Println(">>>>>>>>>>>", prices, persons)
 					count := len(prices)
 					if count > len(persons) {
 						count = len(prices)
@@ -211,65 +221,17 @@ func buildFieldRules() []*crawler.FieldItem {
 				}),
 		},
 		&crawler.FieldItem{
-			Name: "预计回报发送时间",
-			Rule: ruler.NewCutStringRule(`"make_days": "`, `",`, nil),
+			Name: "发起人所在地",
+			Rule: ruler.NewCutStringRule(`"end_date": "`, `",`, nil),
 		},
 		&crawler.FieldItem{
-			Name: "发起人是淘宝还是天猫店铺(描述,服务,物流评价)",
-			Rule: ruler.NewCutStringRule(`"shopId": "`, `",`, func(s string) string {
-				shopURL := fmt.Sprintf("https://shop%s.taobao.com", s)
-				var desc string
-				ruleNoop := ruler.NewNooptRule(func(s string) string {
-					if strings.Contains(s, `title="天猫Tmall.com"`) {
-						return "天猫"
-					}
-
-					return "淘宝"
-				})
-				desc = crawler.GetFromNextPageWithClient(shopURL, ruleNoop, httpClient)
-
-				rateFunc := func(ss []string) string {
-
-					for _, x := range ss {
-						rule := ruler.NewXPathNodeRule(
-							x,
-							func(s string) string {
-								return strings.TrimSpace(s)
-							},
-						)
-
-						rate := crawler.GetFromNextPageWithClient(shopURL, rule, httpClient)
-						if rate != "" {
-							return rate
-						}
-					}
-
-					return ""
-				}
-				availXPath1 := []string{
-					`//*[@id="J_ShopRate2"]/ul/li[1]/em`,
-					`//*[@id="header-content"]/div[2]/div[4]/div[2]/div[2]/ul/li[1]/em`,
-					`//*[@id="shop-info"]/div[2]/div[1]/div[2]/span`,
-				}
-
-				availXPath2 := []string{
-					`//*[@id="J_ShopRate2"]/ul/li[1]/em`,
-					`//*[@id="header-content"]/div[2]/div[4]/div[2]/div[2]/ul/li[1]/em`,
-					`//*[@id="shop-info"]/div[2]/div[1]/div[2]/span`,
-				}
-
-				availXPath3 := []string{
-					`//*[@id="J_ShopRate2"]/ul/li[2]/em`,
-					`//*[@id="header-content"]/div[2]/div[4]/div[2]/div[2]/ul/li[2]/em`,
-					`//*[@id="shop-info"]/div[2]/div[2]/div[2]/span`,
-				}
-				var allRates string
-				allRates += rateFunc(availXPath1) + ","
-				allRates += rateFunc(availXPath2) + ","
-				allRates += rateFunc(availXPath3)
-
-				return desc + "-" + allRates
-			}),
+			Name: "项目结束时间",
+			Rule: ruler.NewXPathNodeRule(
+				`/html/body/div[5]/div/div[2]/div[4]/div[5]`,
+				func(s string) string {
+					r := strings.NewReplacer("\n", "", " ", "")
+					return strings.TrimSpace(r.Replace(s))
+				}),
 		},
 	}
 }
@@ -289,19 +251,16 @@ func main() {
 		nametmp := name
 		pager := crawler.NewGetListPager(
 			func(p int) string {
-				return fmt.Sprintf(PageURLFmt, p, codetmp)
+				return fmt.Sprintf(PageURLFmt, codetmp, p)
 			},
 			startPage,
 			endPage,
 		)
 
 		pageRule := ruler.NewRegexStringRule(
-			`//izhongchou.taobao.com/dreamdetail.htm\?id=[0-9]+`,
+			`/project/detail.htm\?projectId=[0-9]+`,
 			func(s string) string {
-				url := "http:" + s
-				crawler.Get(url)
-				rule := ruler.NewRegexStringRule("id=[0-9]+", nil)
-				return `https://izhongchou.taobao.com/dream/ajax/getProjectForDetail.htm?` + rule.GetFirst(s)
+				return "http://zc.suning.com" + s
 			},
 		)
 		fieldItems := []*crawler.FieldItem{
