@@ -5,7 +5,7 @@ name: default
 
 steps:
 - name: backend
-  image: golang
+  image: golang:1.22
   commands:
   - go build
   - go test
